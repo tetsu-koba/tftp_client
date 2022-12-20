@@ -1,0 +1,6 @@
+*~
+*.old
+*.o
+tftp_client
+udp.zig
+
