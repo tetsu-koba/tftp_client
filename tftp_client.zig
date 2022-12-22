@@ -39,7 +39,7 @@ fn req(adr: []const u8, timeout:i32, verbose: bool) !u16 {
             log.err("{d}:Got revents={d}", .{time.milliTimestamp(),pfd[0].revents});
             return os.ReadError.ReadError;
         }
-        const bytes_read = try s.read(buf[0..]);
+        const bytes_read = try s.read(&buf);
         if (verbose) {
             log.info("{d}:Got message [{s}].", .{time.milliTimestamp(),buf[0..bytes_read]});
         }
