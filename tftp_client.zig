@@ -3,6 +3,7 @@ const os = std.os;
 const log = std.log;
 const time = std.time;
 const net = std.net;
+const mem = std.mem;
 
 const TFTP_PORT = 69;
 const UDP_PAYLOADSIZE = 65507;
@@ -33,9 +34,15 @@ fn makeAck(buf: []u8, n: u16) !usize {
     var fbs = std.io.fixedBufferStream(buf);
     const w = fbs.writer();
 
-    try w.writeIntBig(u16, opcode.RRQ);
+    try w.writeIntBig(u16, opcode.ACK);
     try w.writeIntBig(u16, n);
     return fbs.getPos();
+}
+
+fn checkDataHead(b: []u8, n: u16) bool {
+    if (mem.readIntBig(u16, b[0..2]) != opcode.DATA) return false;
+    if (mem.readIntBig(u16, b[2..4]) != n) return false;
+    return true;
 }
 
 pub fn tftpRead(adr: []const u8, port: u16, remotename: []const u8, s: *std.io.StreamSource, timeout: i32, verbose: bool) !void {
@@ -43,6 +50,7 @@ pub fn tftpRead(adr: []const u8, port: u16, remotename: []const u8, s: *std.io.S
     const sockfd = try os.socket(os.AF.INET, os.SOCK.DGRAM | os.SOCK.CLOEXEC, 0);
     defer os.closeSocket(sockfd);
     var send_buf: [1024]u8 = undefined;
+    var buf: [UDP_PAYLOADSIZE]u8 = undefined;
     const req = send_buf[0..try makeReq(&send_buf, remotename)];
     const a = try net.Address.resolveIp(adr, port);
     var svraddr: std.os.linux.sockaddr = undefined;
@@ -55,7 +63,6 @@ pub fn tftpRead(adr: []const u8, port: u16, remotename: []const u8, s: *std.io.S
         if (verbose) {
             log.info("{d}:send_bytes={d}, a={}", .{ time.milliTimestamp(), send_bytes, a });
         }
-        var buf: [UDP_PAYLOADSIZE]u8 = undefined;
         var pfd = [1]os.pollfd{.{
             .fd = sockfd,
             .events = os.POLL.IN,
@@ -85,17 +92,52 @@ pub fn tftpRead(adr: []const u8, port: u16, remotename: []const u8, s: *std.io.S
     } else {
         return os.ReadError.ReadError;
     }
+    // try os.connect(sockfd, &svraddr, svraddrlen);
+    // if (verbose) {
+    //     log.info("{d}:connect, a={}", .{ time.milliTimestamp(), svraddr});
+    // }
     var ack: []u8 = undefined;
     retry_count = 0;
-    while (retry_count < RETRY_MAX) : (retry_count += 1) {
+    while (retry_count < RETRY_MAX) {
         ack = send_buf[0..try makeAck(&send_buf, block_n)];
         const send_bytes = try os.sendto(sockfd, ack, 0, &svraddr, svraddrlen);
+        //const send_bytes = try os.send(sockfd, ack, 0);
         if (verbose) {
-            log.info("{d}:send_bytes={d}, a={}", .{ time.milliTimestamp(), send_bytes, svraddr });
+            log.info("{d}:send_bytes={d} block_n={d} a={}", .{ time.milliTimestamp(), send_bytes, block_n, svraddr});
         }
         if (bytes_read < DATA_MAXSIZE) {
             return;
         }
+        var pfd = [1]os.pollfd{.{
+            .fd = sockfd,
+            .events = os.POLL.IN,
+            .revents = undefined,
+        }};
+        const nevent = os.poll(&pfd, timeout) catch 0;
+        if (nevent == 0) {
+            // timeout
+            retry_count += 1;
+            continue;
+        }
+        if ((pfd[0].revents & os.linux.POLL.IN) == 0) {
+            log.err("{d}:Got revents={d}", .{ time.milliTimestamp(), pfd[0].revents });
+            return os.ReadError.ReadError;
+        }
+        //bytes_read = try os.recvfrom(sockfd, &buf, 0, &svraddr, &svraddrlen);
+        bytes_read = try os.recv(sockfd, &buf, 0);
+        if (verbose) {
+            log.info("{d}:bytes_read={d} {d}", .{ time.milliTimestamp(), bytes_read, buf[3]});
+            // var out_buf: [1024]u8 = undefined;
+            // const n = try toStr(buf[0..bytes_read], &out_buf);
+            // log.info("len = {d}, s=[{s}]\n", .{ n, out_buf[0..n] });
+        }
+        if (checkDataHead(buf[0..4], block_n + 1)) {
+            _ = try w.writeAll(buf[4..bytes_read]);
+            block_n += 1;
+            retry_count = 0;
+            continue;
+        }
+        retry_count += 1;
     } else {
         return os.ReadError.ReadError;
     }
@@ -120,7 +162,8 @@ pub fn main() !void {
     const timeout = 5 * 1000;
     const adr = "127.0.0.1";
     const port = TFTP_PORT;
-    const remotename = "hello.txt";
+    //const remotename = "hello.txt";
+    const remotename = "st.log";
     const localname = remotename;
     var s = std.io.StreamSource{ .file = try std.fs.cwd().createFile(localname, .{}) };
     defer s.file.close();
