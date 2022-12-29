@@ -5,15 +5,15 @@ const net = std.net;
 const mem = std.mem;
 
 const UDP_PAYLOADSIZE = 65507;
-const DATA_MAXSIZE = 512;
+pub const DATA_MAXSIZE = 512;
 const RETRY_MAX = 5;
 
-const opcode = struct {
-    const RRQ = 1;
-    const WRQ = 2;
-    const DATA = 3;
-    const ACK = 4;
-    const ERROR = 5;
+pub const opcode = struct {
+    pub const RRQ = 1;
+    pub const WRQ = 2;
+    pub const DATA = 3;
+    pub const ACK = 4;
+    pub const ERROR = 5;
 };
 
 fn makeReq(buf: []u8, opc: u16, remotename: []const u8) !usize {
@@ -28,24 +28,24 @@ fn makeReq(buf: []u8, opc: u16, remotename: []const u8) !usize {
     return fbs.getPos();
 }
 
-fn makeAck(b: []u8, n: u16) usize {
+pub fn makeAck(b: []u8, n: u16) usize {
     mem.writeIntBig(u16, b[0..2], opcode.ACK);
     mem.writeIntBig(u16, b[2..4], n);
     return 4;
 }
 
-fn checkAck(b: []u8, n: u16) bool {
+pub fn checkAck(b: []u8, n: u16) bool {
     if (mem.readIntBig(u16, b[0..2]) != opcode.ACK) return false;
     if (mem.readIntBig(u16, b[2..4]) != n) return false;
     return true;
 }
 
-fn makeDataHead(b: []u8, n: u16) void {
+pub fn makeDataHead(b: []u8, n: u16) void {
     mem.writeIntBig(u16, b[0..2], opcode.DATA);
     mem.writeIntBig(u16, b[2..4], n);
 }
 
-fn checkDataHead(b: []u8, n: u16) bool {
+pub fn checkDataHead(b: []u8, n: u16) bool {
     if (mem.readIntBig(u16, b[0..2]) != opcode.DATA) return false;
     if (mem.readIntBig(u16, b[2..4]) != n) return false;
     return true;
