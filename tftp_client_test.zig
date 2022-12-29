@@ -27,3 +27,14 @@ test "write to fixedBufferStream" {
     const n = try s.buffer.getPos();
     std.debug.print("\nn={d}, [{s}]\n", .{ n, buf[0..n] });
 }
+
+test "read from fixedBufferStream" {
+    const verbose = false;
+    const timeout = 5 * 1000;
+    const remotename = "hello.txt";
+    const str = "Hello, how are you?";
+    var s = std.io.StreamSource{ .const_buffer = std.io.fixedBufferStream(str) };
+    try t.tftpWrite(TEST_ADDR, TEST_PORT, remotename, &s, timeout, verbose);
+    const n = try s.const_buffer.getPos();
+    std.debug.print("\nn={d}, [{s}]\n", .{ n, str[0..n] });
+}
