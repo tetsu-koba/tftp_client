@@ -5,7 +5,7 @@ const net = std.net;
 const mem = std.mem;
 
 const UDP_PAYLOADSIZE = 65507;
-const DATA_MAXSIZE = 4 + 512;
+const DATA_MAXSIZE = 512;
 const RETRY_MAX = 5;
 
 const opcode = struct {
@@ -66,6 +66,7 @@ var payload_buf: [UDP_PAYLOADSIZE]u8 = undefined;
 pub fn tftpRead(adr: []const u8, port: u16, remotename: []const u8, s: *std.io.StreamSource, timeout: i32, verbose: bool) !void {
     const d: D = .{ .v = verbose };
     const w = s.writer();
+    const data_max = DATA_MAXSIZE;
     const sockfd = try os.socket(os.AF.INET, os.SOCK.DGRAM | os.SOCK.CLOEXEC, 0);
     defer os.closeSocket(sockfd);
     const req = payload_buf[0..try makeReq(&payload_buf, opcode.RRQ, remotename)];
@@ -111,7 +112,7 @@ pub fn tftpRead(adr: []const u8, port: u16, remotename: []const u8, s: *std.io.S
         ack = payload_buf[0..makeAck(&payload_buf, block_n)];
         const send_bytes = try os.send(sockfd, ack, 0);
         d.print("{d}:send_bytes={d} block_n={d}\n", .{ time.milliTimestamp(), send_bytes, block_n });
-        if (recv_bytes < DATA_MAXSIZE) {
+        if (recv_bytes < (4 + data_max)) {
             return;
         }
         const nevent = os.poll(&pfd, timeout) catch 0;
@@ -141,6 +142,7 @@ pub fn tftpRead(adr: []const u8, port: u16, remotename: []const u8, s: *std.io.S
 pub fn tftpWrite(adr: []const u8, port: u16, remotename: []const u8, s: *std.io.StreamSource, timeout: i32, verbose: bool) !void {
     const d: D = .{ .v = verbose };
     const r = s.reader();
+    const data_max = DATA_MAXSIZE;
     const sockfd = try os.socket(os.AF.INET, os.SOCK.DGRAM | os.SOCK.CLOEXEC, 0);
     defer os.closeSocket(sockfd);
     const req = payload_buf[0..try makeReq(&payload_buf, opcode.WRQ, remotename)];
@@ -179,7 +181,6 @@ pub fn tftpWrite(adr: []const u8, port: u16, remotename: []const u8, s: *std.io.
 
     try os.connect(sockfd, &svraddr, svraddrlen);
     d.print("{d}:connect, a={}\n", .{ time.milliTimestamp(), svraddr });
-    const data_max = 512;
     retry_count = 0;
     while (retry_count < RETRY_MAX) {
         makeDataHead(payload_buf[0..4], block_n);
