@@ -84,21 +84,19 @@ test "read single packet from test server" {
                 std.log.err("{d}:Got revents={d}", .{ time.milliTimestamp(), pfd[0].revents });
                 unreachable;
             }
-            _ = try os.recvfrom(sockfd, &databuf, 0, &cliaddr, &cliaddrlen);
+            if (try os.recvfrom(sockfd, &databuf, 0, &cliaddr, &cliaddrlen) < 4) unreachable;
             if (!t.checkAck(databuf[0..4], block_n)) unreachable;
         }
     };
     const remotename = "read_short.txt";
-    const str = "The quick brown fox jumps over the lazy dog.";
+    const str = "Alpha Bravo Charlie Delta Echo Foxtrot Golf Hotel India Juliett Kilo Lima Mike";
     var ss = std.io.StreamSource{ .const_buffer = std.io.fixedBufferStream(str) };
-    const svr = Server{ .adr = TEST_ADDR, .port = TEST_PORT, .filename = remotename, .stream = &ss, .timeout = 1000 };
+    const svr = Server{ .adr = TEST_ADDR, .port = TEST_PORT, .filename = remotename, .stream = &ss, .timeout = 5*1000 };
     var thread = try std.Thread.spawn(.{}, Server.serve, .{&svr});
-    const verbose = false;
-    const timeout = 5 * 1000;
 
     var buf: [1024]u8 = undefined;
     var s = std.io.StreamSource{ .buffer = std.io.fixedBufferStream(&buf) };
-    try t.tftpRead(TEST_ADDR, TEST_PORT, remotename, &s, timeout, verbose);
+    try t.tftpRead(TEST_ADDR, TEST_PORT, remotename, &s, 200, false);
     const n = try s.buffer.getPos();
     std.debug.print("\nn={d}, [{s}]\n", .{ n, buf[0..n] });
     try expect(mem.eql(u8, str, buf[0..n]));
@@ -163,14 +161,12 @@ test "write single packet to test server" {
     const remotename = "write_short.txt";
     var buf: [1024]u8 = undefined;
     var ss = std.io.StreamSource{ .buffer = std.io.fixedBufferStream(&buf) };
-    const svr = Server{ .adr = TEST_ADDR, .port = TEST_PORT, .filename = remotename, .stream = &ss, .timeout = 1000 };
+    const svr = Server{ .adr = TEST_ADDR, .port = TEST_PORT, .filename = remotename, .stream = &ss, .timeout = 5*1000 };
     var thread = try std.Thread.spawn(.{}, Server.serve, .{&svr});
-    const verbose = false;
-    const timeout = 5 * 1000;
 
-    const str = "Alpha Bravo Charlie Delta Echo Foxtrot Golf Hotel India Juliett Kilo";
+    const str = "November Oscar Papa Quebec Romeo Sierra Tango Uniform Victor Whiskey Xray Yankee Zulu";
     var s = std.io.StreamSource{ .const_buffer = std.io.fixedBufferStream(str) };
-    try t.tftpWrite(TEST_ADDR, TEST_PORT, remotename, &s, timeout, verbose);
+    try t.tftpWrite(TEST_ADDR, TEST_PORT, remotename, &s, 200, false);
     const n = try s.const_buffer.getPos();
     std.debug.print("\nn={d}, [{s}]\n", .{ n, buf[0..n] });
     try expect(mem.eql(u8, str, buf[0..n]));
