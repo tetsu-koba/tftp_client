@@ -187,13 +187,13 @@ pub fn tftpWrite(adr: []const u8, port: u16, remotename: []const u8, s: *std.io.
         const n = try r.readAll(payload_buf[4..data_max + 4]);
         const send_bytes = try os.send(sockfd, payload_buf[0 .. (4 + n)], 0);
         d.print("{d}:send_bytes={d} block_n={d}\n", .{ time.milliTimestamp(), send_bytes, block_n });
-        const nevent = os.poll(&pfd, timeout) catch 0;
+        const nevent = try os.poll(&pfd, timeout);
         if (nevent == 0) {
             // timeout
             retry_count += 1;
             continue;
         }
-        if ((pfd[0].revents & os.linux.POLL.IN) == 0) {
+        if ((pfd[0].revents & (os.linux.POLL.IN | os.linux.POLL.ERR)) == 0) {
             std.log.err("{d}:Got revents={d}", .{ time.milliTimestamp(), pfd[0].revents });
             return os.ReadError.ReadError;
         }
