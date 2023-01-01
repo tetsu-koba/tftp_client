@@ -89,7 +89,7 @@ pub fn tftpRead(adr: []const u8, port: u16, remotename: []const u8, s: *std.io.S
             // timeout
             continue;
         }
-        if ((pfd[0].revents & os.linux.POLL.IN) == 0) {
+        if ((pfd[0].revents & (os.linux.POLL.IN | os.linux.POLL.ERR)) == 0) {
             std.log.err("{d}:Got revents={d}", .{ time.milliTimestamp(), pfd[0].revents });
             return os.ReadError.ReadError;
         }
@@ -121,7 +121,7 @@ pub fn tftpRead(adr: []const u8, port: u16, remotename: []const u8, s: *std.io.S
             retry_count += 1;
             continue;
         }
-        if ((pfd[0].revents & os.linux.POLL.IN) == 0) {
+        if ((pfd[0].revents & (os.linux.POLL.IN | os.linux.POLL.ERR)) == 0) {
             std.log.err("{d}:Got revents={d}", .{ time.milliTimestamp(), pfd[0].revents });
             return os.ReadError.ReadError;
         }
@@ -165,7 +165,7 @@ pub fn tftpWrite(adr: []const u8, port: u16, remotename: []const u8, s: *std.io.
             // timeout
             continue;
         }
-        if ((pfd[0].revents & os.linux.POLL.IN) == 0) {
+        if ((pfd[0].revents & (os.linux.POLL.IN | os.linux.POLL.ERR)) == 0) {
             std.log.err("{d}:Got revents={d}", .{ time.milliTimestamp(), pfd[0].revents });
             return os.ReadError.ReadError;
         }
