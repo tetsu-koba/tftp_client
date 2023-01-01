@@ -63,14 +63,13 @@ const D = struct {
 
 var payload_buf: [UDP_PAYLOADSIZE]u8 = undefined;
 
-pub fn tftpRead(adr: []const u8, port: u16, remotename: []const u8, s: *std.io.StreamSource, timeout: i32, verbose: bool) !void {
+pub fn tftpRead(adr: net.Address, remotename: []const u8, s: *std.io.StreamSource, timeout: i32, verbose: bool) !void {
     const d: D = .{ .v = verbose };
     const w = s.writer();
     const data_max = DATA_MAXSIZE;
     const sockfd = try os.socket(os.AF.INET, os.SOCK.DGRAM | os.SOCK.CLOEXEC, 0);
     defer os.closeSocket(sockfd);
     const req = payload_buf[0..try makeReq(&payload_buf, opcode.RRQ, remotename)];
-    const a = try net.Address.resolveIp(adr, port);
     var svraddr: std.os.linux.sockaddr = undefined;
     var svraddrlen: std.os.socklen_t = @sizeOf(os.linux.sockaddr);
     var recv_bytes: usize = 0;
@@ -82,8 +81,8 @@ pub fn tftpRead(adr: []const u8, port: u16, remotename: []const u8, s: *std.io.S
     }};
     var retry_count: u16 = 0;
     while (retry_count < RETRY_MAX) : (retry_count += 1) {
-        const send_bytes = try os.sendto(sockfd, req, 0, &a.any, a.getOsSockLen());
-        d.print("{d}:send_bytes={d}, a={}\n", .{ time.milliTimestamp(), send_bytes, a });
+        const send_bytes = try os.sendto(sockfd, req, 0, &adr.any, adr.getOsSockLen());
+        d.print("{d}:send_bytes={d}, a={}\n", .{ time.milliTimestamp(), send_bytes, adr });
         const nevent = os.poll(&pfd, timeout) catch 0;
         if (nevent == 0) {
             // timeout
@@ -139,14 +138,13 @@ pub fn tftpRead(adr: []const u8, port: u16, remotename: []const u8, s: *std.io.S
     }
 }
 
-pub fn tftpWrite(adr: []const u8, port: u16, remotename: []const u8, s: *std.io.StreamSource, timeout: i32, verbose: bool) !void {
+pub fn tftpWrite(adr: net.Address, remotename: []const u8, s: *std.io.StreamSource, timeout: i32, verbose: bool) !void {
     const d: D = .{ .v = verbose };
     const r = s.reader();
     const data_max = DATA_MAXSIZE;
     const sockfd = try os.socket(os.AF.INET, os.SOCK.DGRAM | os.SOCK.CLOEXEC, 0);
     defer os.closeSocket(sockfd);
     const req = payload_buf[0..try makeReq(&payload_buf, opcode.WRQ, remotename)];
-    const a = try net.Address.resolveIp(adr, port);
     var svraddr: std.os.linux.sockaddr = undefined;
     var svraddrlen: std.os.socklen_t = @sizeOf(os.linux.sockaddr);
     var recv_bytes: usize = 0;
@@ -158,8 +156,8 @@ pub fn tftpWrite(adr: []const u8, port: u16, remotename: []const u8, s: *std.io.
     }};
     var retry_count: u16 = 0;
     while (retry_count < RETRY_MAX) : (retry_count += 1) {
-        const send_bytes = try os.sendto(sockfd, req, 0, &a.any, a.getOsSockLen());
-        d.print("{d}:send_bytes={d}, a={}\n", .{ time.milliTimestamp(), send_bytes, a });
+        const send_bytes = try os.sendto(sockfd, req, 0, &adr.any, adr.getOsSockLen());
+        d.print("{d}:send_bytes={d}, a={}\n", .{ time.milliTimestamp(), send_bytes, adr });
         const nevent = os.poll(&pfd, timeout) catch 0;
         if (nevent == 0) {
             // timeout
