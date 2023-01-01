@@ -8,6 +8,9 @@ const UDP_PAYLOADSIZE = 65507;
 pub const DATA_MAXSIZE = 512;
 const RETRY_MAX = 5;
 
+var verbose_flag = false;
+var payload_buf: [UDP_PAYLOADSIZE]u8 = undefined;
+
 pub const opcode = struct {
     pub const RRQ = 1;
     pub const WRQ = 2;
@@ -51,20 +54,14 @@ pub fn checkDataHead(b: []u8, n: u16) bool {
     return true;
 }
 
-const D = struct {
-    v: bool,
-    const Self = @This();
-    fn print(self: Self, comptime fmt: []const u8, a: anytype) void {
-        if (self.v) {
+fn dprint(comptime fmt: []const u8, a: anytype) void {
+    if (verbose_flag) {
             std.debug.print(fmt, a);
-        }
     }
-};
-
-var payload_buf: [UDP_PAYLOADSIZE]u8 = undefined;
+}
 
 pub fn tftpRead(adr: net.Address, remotename: []const u8, s: *std.io.StreamSource, timeout: i32, verbose: bool) !void {
-    const d: D = .{ .v = verbose };
+    verbose_flag = verbose;
     const w = s.writer();
     const data_max = DATA_MAXSIZE;
     const sockfd = try os.socket(os.AF.INET, os.SOCK.DGRAM | os.SOCK.CLOEXEC, 0);
@@ -82,7 +79,7 @@ pub fn tftpRead(adr: net.Address, remotename: []const u8, s: *std.io.StreamSourc
     var retry_count: u16 = 0;
     while (retry_count < RETRY_MAX) : (retry_count += 1) {
         const send_bytes = try os.sendto(sockfd, req, 0, &adr.any, adr.getOsSockLen());
-        d.print("{d}:send_bytes={d}, a={}\n", .{ time.milliTimestamp(), send_bytes, adr });
+        dprint("{d}:send_bytes={d}, a={}\n", .{ time.milliTimestamp(), send_bytes, adr });
         const nevent = os.poll(&pfd, timeout) catch 0;
         if (nevent == 0) {
             // timeout
@@ -93,7 +90,7 @@ pub fn tftpRead(adr: net.Address, remotename: []const u8, s: *std.io.StreamSourc
             return os.ReadError.ReadError;
         }
         recv_bytes = try os.recvfrom(sockfd, &payload_buf, 0, &svraddr, &svraddrlen);
-        d.print("{d}:recv_bytes={d} {}\n", .{ time.milliTimestamp(), recv_bytes, svraddr });
+        dprint("{d}:recv_bytes={d} {}\n", .{ time.milliTimestamp(), recv_bytes, svraddr });
         if (checkDataHead(payload_buf[0..4], 1)) {
             _ = try w.writeAll(payload_buf[4..recv_bytes]);
             block_n = 1;
@@ -104,13 +101,13 @@ pub fn tftpRead(adr: net.Address, remotename: []const u8, s: *std.io.StreamSourc
     }
 
     try os.connect(sockfd, &svraddr, svraddrlen);
-    d.print("{d}:connect, a={}\n", .{ time.milliTimestamp(), svraddr });
+    dprint("{d}:connect, a={}\n", .{ time.milliTimestamp(), svraddr });
     var ack: []u8 = undefined;
     retry_count = 0;
     while (retry_count < RETRY_MAX) {
         ack = payload_buf[0..makeAck(&payload_buf, block_n)];
         const send_bytes = try os.send(sockfd, ack, 0);
-        d.print("{d}:send_bytes={d} block_n={d}\n", .{ time.milliTimestamp(), send_bytes, block_n });
+        dprint("{d}:send_bytes={d} block_n={d}\n", .{ time.milliTimestamp(), send_bytes, block_n });
         if (recv_bytes < (4 + data_max)) {
             return;
         }
@@ -125,7 +122,7 @@ pub fn tftpRead(adr: net.Address, remotename: []const u8, s: *std.io.StreamSourc
             return os.ReadError.ReadError;
         }
         recv_bytes = try os.recv(sockfd, &payload_buf, 0);
-        d.print("{d}:recv_bytes={d} {d}\n", .{ time.milliTimestamp(), recv_bytes, payload_buf[3] });
+        dprint("{d}:recv_bytes={d} {d}\n", .{ time.milliTimestamp(), recv_bytes, payload_buf[3] });
         if (checkDataHead(payload_buf[0..4], block_n + 1)) {
             _ = try w.writeAll(payload_buf[4..recv_bytes]);
             block_n += 1;
@@ -139,7 +136,7 @@ pub fn tftpRead(adr: net.Address, remotename: []const u8, s: *std.io.StreamSourc
 }
 
 pub fn tftpWrite(adr: net.Address, remotename: []const u8, s: *std.io.StreamSource, timeout: i32, verbose: bool) !void {
-    const d: D = .{ .v = verbose };
+    verbose_flag = verbose;
     const r = s.reader();
     const data_max = DATA_MAXSIZE;
     const sockfd = try os.socket(os.AF.INET, os.SOCK.DGRAM | os.SOCK.CLOEXEC, 0);
@@ -157,7 +154,7 @@ pub fn tftpWrite(adr: net.Address, remotename: []const u8, s: *std.io.StreamSour
     var retry_count: u16 = 0;
     while (retry_count < RETRY_MAX) : (retry_count += 1) {
         const send_bytes = try os.sendto(sockfd, req, 0, &adr.any, adr.getOsSockLen());
-        d.print("{d}:send_bytes={d}, a={}\n", .{ time.milliTimestamp(), send_bytes, adr });
+        dprint("{d}:send_bytes={d}, a={}\n", .{ time.milliTimestamp(), send_bytes, adr });
         const nevent = os.poll(&pfd, timeout) catch 0;
         if (nevent == 0) {
             // timeout
@@ -168,7 +165,7 @@ pub fn tftpWrite(adr: net.Address, remotename: []const u8, s: *std.io.StreamSour
             return os.ReadError.ReadError;
         }
         recv_bytes = try os.recvfrom(sockfd, &payload_buf, 0, &svraddr, &svraddrlen);
-        d.print("{d}:recv_bytes={d} {}\n", .{ time.milliTimestamp(), recv_bytes, svraddr });
+        dprint("{d}:recv_bytes={d} {}\n", .{ time.milliTimestamp(), recv_bytes, svraddr });
         if (checkAck(payload_buf[0..4], block_n)) {
             block_n += 1;
             break;
@@ -178,13 +175,13 @@ pub fn tftpWrite(adr: net.Address, remotename: []const u8, s: *std.io.StreamSour
     }
 
     try os.connect(sockfd, &svraddr, svraddrlen);
-    d.print("{d}:connect, a={}\n", .{ time.milliTimestamp(), svraddr });
+    dprint("{d}:connect, a={}\n", .{ time.milliTimestamp(), svraddr });
     retry_count = 0;
     while (retry_count < RETRY_MAX) {
         makeDataHead(payload_buf[0..4], block_n);
         const n = try r.readAll(payload_buf[4..data_max + 4]);
         const send_bytes = try os.send(sockfd, payload_buf[0 .. (4 + n)], 0);
-        d.print("{d}:send_bytes={d} block_n={d}\n", .{ time.milliTimestamp(), send_bytes, block_n });
+        dprint("{d}:send_bytes={d} block_n={d}\n", .{ time.milliTimestamp(), send_bytes, block_n });
         const nevent = try os.poll(&pfd, timeout);
         if (nevent == 0) {
             // timeout
@@ -196,7 +193,7 @@ pub fn tftpWrite(adr: net.Address, remotename: []const u8, s: *std.io.StreamSour
             return os.ReadError.ReadError;
         }
         recv_bytes = try os.recv(sockfd, &payload_buf, 0);
-        d.print("{d}:recv_bytes={d} {d}\n", .{ time.milliTimestamp(), recv_bytes, payload_buf[3] });
+        dprint("{d}:recv_bytes={d} {d}\n", .{ time.milliTimestamp(), recv_bytes, payload_buf[3] });
         if (checkAck(payload_buf[0..4], block_n)) {
             if (n < data_max) break;
             block_n += 1;
