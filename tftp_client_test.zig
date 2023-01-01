@@ -44,7 +44,7 @@ fn makeError(buf: []u8, errc: u16, errmsg: []const u8) !usize {
     try w.writeIntBig(u16, t.opcode.ERROR);
     try w.writeIntBig(u16, errc);
     try w.writeAll(errmsg);
-    try w.writeIntBig(u8, 0);
+    try w.writeByte(0);
     return fbs.getPos();
 }
 

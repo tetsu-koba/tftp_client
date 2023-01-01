@@ -22,9 +22,9 @@ fn makeReq(buf: []u8, opc: u16, remotename: []const u8) !usize {
 
     try w.writeIntBig(u16, opc);
     try w.writeAll(remotename);
-    try w.writeIntBig(u8, 0);
+    try w.writeByte(0);
     try w.writeAll("octet");
-    try w.writeIntBig(u8, 0);
+    try w.writeByte(0);
     return fbs.getPos();
 }
 
