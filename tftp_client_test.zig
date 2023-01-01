@@ -137,21 +137,22 @@ test "read multiple packets from test server" {
             var cliaddrlen: std.os.socklen_t = @sizeOf(os.linux.sockaddr);
             var recv_bytes = try os.recvfrom(sockfd, &databuf, 0, &cliaddr, &cliaddrlen);
             if (!try checkReq(databuf[0..recv_bytes], t.opcode.RRQ, self.filename)) unreachable;
+            try os.connect(sockfd, &cliaddr, cliaddrlen);
             var block_n: u16 = 0;
             var n: usize = data_max;
             while (n == data_max) {
                 if (block_n == 0xffff) {
                     // too big file size
                     const en = try makeError(&databuf, 3, "File size is too big.");
-                    _ = try os.sendto(sockfd, databuf[0..en], 0, &cliaddr, cliaddrlen);
+                    _ = try os.send(sockfd, databuf[0..en], 0);
                     return;
                 }
                 block_n += 1;
                 n = try r.readAll(databuf[4 .. 4 + data_max]);
                 t.makeDataHead(databuf[0..4], block_n);
-                _ = try os.sendto(sockfd, databuf[0 .. 4 + n], 0, &cliaddr, cliaddrlen);
+                _ = try os.send(sockfd, databuf[0 .. 4 + n], 0);
                 nevent = try waitWithTimeout(&pfd, self.timeout);
-                if (try os.recvfrom(sockfd, &databuf, 0, &cliaddr, &cliaddrlen) < 4) unreachable;
+                if (try os.recv(sockfd, &databuf, 0) < 4) unreachable;
                 if (!t.checkAck(databuf[0..4], block_n)) unreachable;
             }
         }
