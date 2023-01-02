@@ -78,7 +78,7 @@ fn toHex(input: []const u8, output: []u8) ![]u8 {
     var fbs = std.io.fixedBufferStream(output);
     const w = fbs.writer();
     for (input) |x| {
-        try w.print("{X}{X} ", .{x >> 4, x & 0xf});
+        try w.print("{x:0>2} ", .{x});
     }
     return fbs.getWritten();
 }
