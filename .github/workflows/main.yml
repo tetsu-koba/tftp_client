@@ -10,7 +10,7 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-latest, macOS-latest]
-        release: [Debug, ReleaseSafe, RelaseFast, ReleaseSmall]
+        release: [Debug, ReleaseSafe, ReleaseFast, ReleaseSmall]
     runs-on: ${{matrix.os}}
     steps:
       - uses: actions/checkout@v3
