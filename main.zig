@@ -17,11 +17,9 @@ pub fn main() !void {
         std.os.exit(1);
     }
     const a1 = std.mem.sliceTo(args[1], 0);
-    const op: enum { get, put } = if (std.mem.eql(u8, a1, "get")) .get
-        else if (std.mem.eql(u8, a1, "put")) .put
-        else {
-            std.debug.print("{s} is not allowed. Specify 'get' or 'put'\n", .{a1});
-            std.os.exit(1);
+    const op: enum { get, put } = if (std.mem.eql(u8, a1, "get")) .get else if (std.mem.eql(u8, a1, "put")) .put else {
+        std.debug.print("{s} is not allowed. Specify 'get' or 'put'\n", .{a1});
+        std.os.exit(1);
     };
     const host = std.mem.sliceTo(args[2], 0);
     const remotename = std.mem.sliceTo(args[3], 0);
@@ -30,7 +28,7 @@ pub fn main() !void {
         localname = std.mem.sliceTo(args[4], 0);
     }
     var alist = std.net.getAddressList(alc, host, port) catch |e| {
-        std.debug.print("std.net.getAddressList: host={s} {}\n", .{host, e});
+        std.debug.print("std.net.getAddressList: host={s} {}\n", .{ host, e });
         std.os.exit(1);
     };
     defer alist.deinit();

@@ -57,7 +57,7 @@ pub fn checkDataHead(b: []u8, n: u16) bool {
 
 fn dprint(comptime fmt: []const u8, a: anytype) void {
     if (verbose_flag) {
-            std.debug.print(fmt, a);
+        std.debug.print(fmt, a);
     }
 }
 
@@ -129,7 +129,7 @@ pub fn tftpRead(adr: net.Address, remotename: []const u8, s: *std.io.StreamSourc
     while (retry_count < RETRY_MAX) {
         ack = payload_buf[0..makeAck(&payload_buf, block_n)];
         const send_bytes = try os.send(sockfd, ack, 0);
-        dprint("{d}:send_bytes={d}, [{s}]\n", .{ time.milliTimestamp(), send_bytes, try toHex(payload_buf[0..send_bytes], &dbuf)});
+        dprint("{d}:send_bytes={d}, [{s}]\n", .{ time.milliTimestamp(), send_bytes, try toHex(payload_buf[0..send_bytes], &dbuf) });
         if (recv_bytes < (4 + data_max)) {
             return;
         }
@@ -200,9 +200,9 @@ pub fn tftpWrite(adr: net.Address, remotename: []const u8, s: *std.io.StreamSour
     retry_count = 0;
     while (retry_count < RETRY_MAX) {
         makeDataHead(payload_buf[0..4], block_n);
-        const n = try r.readAll(payload_buf[4..data_max + 4]);
-        const send_bytes = try os.send(sockfd, payload_buf[0 .. (4 + n)], 0);
-        dprint("{d}:send_bytes={d}, [{s}...]\n", .{ time.milliTimestamp(), send_bytes, try toHex(payload_buf[0..4], &dbuf)});
+        const n = try r.readAll(payload_buf[4 .. data_max + 4]);
+        const send_bytes = try os.send(sockfd, payload_buf[0..(4 + n)], 0);
+        dprint("{d}:send_bytes={d}, [{s}...]\n", .{ time.milliTimestamp(), send_bytes, try toHex(payload_buf[0..4], &dbuf) });
         const nevent = try os.poll(&pfd, timeout);
         if (nevent == 0) {
             // timeout
