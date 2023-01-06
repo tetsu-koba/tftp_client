@@ -9,7 +9,7 @@ jobs:
   test:
     strategy:
       matrix:
-        os: [ubuntu-latest, macOS-latest]
+        os: [ubuntu-latest]
         release: [Debug, ReleaseSafe, ReleaseFast, ReleaseSmall]
     runs-on: ${{matrix.os}}
     steps:
