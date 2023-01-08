@@ -5,6 +5,7 @@ const net = std.net;
 const time = std.time;
 const expect = std.testing.expect;
 const t = @import("tftp_client.zig");
+//const t = @This();
 
 const TEST_ADDR = "127.0.0.1";
 const TEST_PORT = 7069;
@@ -105,7 +106,8 @@ test "read single packet from test server" {
     var buf: [1024]u8 = undefined;
     var s = std.io.StreamSource{ .buffer = std.io.fixedBufferStream(&buf) };
     const adr = try std.net.Address.resolveIp(TEST_ADDR, TEST_PORT);
-    try t.tftpRead(adr, remotename, &s, 200, false);
+    var tc = t.TftpClient.init(false);
+    try tc.tftpRead(adr, remotename, &s, 200);
     const n = try s.buffer.getPos();
     std.debug.print("\nn={d}, [{s}]\n", .{ n, buf[0..n] });
     try expect(mem.eql(u8, str, buf[0..n]));
@@ -171,7 +173,8 @@ test "read multiple packets from test server" {
     var buf: [DATASIZE + 512]u8 = undefined;
     var s = std.io.StreamSource{ .buffer = std.io.fixedBufferStream(&buf) };
     const adr = try std.net.Address.resolveIp(TEST_ADDR, TEST_PORT);
-    try t.tftpRead(adr, remotename, &s, 200, false);
+    var tc = t.TftpClient.init(false);
+    try tc.tftpRead(adr, remotename, &s, 200);
     const n = try s.buffer.getPos();
     try expect(mem.eql(u8, &rbuf, buf[0..n]));
     thread.join();
@@ -225,7 +228,8 @@ test "write single packet to test server" {
     const str = "November Oscar Papa Quebec Romeo Sierra Tango Uniform Victor Whiskey Xray Yankee Zulu";
     var s = std.io.StreamSource{ .const_buffer = std.io.fixedBufferStream(str) };
     const adr = try std.net.Address.resolveIp(TEST_ADDR, TEST_PORT);
-    try t.tftpWrite(adr, remotename, &s, 200, false);
+    var tc = t.TftpClient.init(false);
+    try tc.tftpWrite(adr, remotename, &s, 200);
     const n = try s.const_buffer.getPos();
     std.debug.print("\nn={d}, [{s}]\n", .{ n, buf[0..n] });
     try expect(mem.eql(u8, str, buf[0..n]));
@@ -288,7 +292,8 @@ test "write multiple packets to test server" {
     prng.fill(&buf2);
     var s = std.io.StreamSource{ .buffer = std.io.fixedBufferStream(&buf2) };
     const adr = try std.net.Address.resolveIp(TEST_ADDR, TEST_PORT);
-    try t.tftpWrite(adr, remotename, &s, 200, false);
+    var tc = t.TftpClient.init(false);
+    try tc.tftpWrite(adr, remotename, &s, 200);
     const n = try s.buffer.getPos();
     try expect(mem.eql(u8, &buf2, buf[0..n]));
     thread.join();

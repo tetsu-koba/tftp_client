@@ -33,16 +33,17 @@ pub fn main() !void {
     };
     defer alist.deinit();
     const adr = alist.addrs[0];
+    var tc = t.TftpClient.init(verbose);
     switch (op) {
         .get => {
             var s = std.io.StreamSource{ .file = try std.fs.cwd().createFile(localname, .{}) };
             defer s.file.close();
-            try t.tftpRead(adr, remotename, &s, timeout, verbose);
+            try tc.tftpRead(adr, remotename, &s, timeout);
         },
         .put => {
             var s = std.io.StreamSource{ .file = try std.fs.cwd().openFile(localname, .{}) };
             defer s.file.close();
-            try t.tftpWrite(adr, remotename, &s, timeout, verbose);
+            try tc.tftpWrite(adr, remotename, &s, timeout);
         },
     }
 }
