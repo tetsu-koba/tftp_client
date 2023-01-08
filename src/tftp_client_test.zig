@@ -106,7 +106,7 @@ test "read single packet from test server" {
     var buf: [1024]u8 = undefined;
     var s = std.io.StreamSource{ .buffer = std.io.fixedBufferStream(&buf) };
     const adr = try std.net.Address.resolveIp(TEST_ADDR, TEST_PORT);
-    var tc = t.TftpClient.init(adr, 200, false);
+    const tc = t.TftpClient.init(adr, 200, false);
     try tc.tftpRead(remotename, &s);
     const n = try s.buffer.getPos();
     std.debug.print("\nn={d}, [{s}]\n", .{ n, buf[0..n] });
@@ -173,7 +173,7 @@ test "read multiple packets from test server" {
     var buf: [DATASIZE + 512]u8 = undefined;
     var s = std.io.StreamSource{ .buffer = std.io.fixedBufferStream(&buf) };
     const adr = try std.net.Address.resolveIp(TEST_ADDR, TEST_PORT);
-    var tc = t.TftpClient.init(adr, 200, false);
+    const tc = t.TftpClient.init(adr, 200, false);
     try tc.tftpRead(remotename, &s);
     const n = try s.buffer.getPos();
     try expect(mem.eql(u8, &rbuf, buf[0..n]));
@@ -228,7 +228,7 @@ test "write single packet to test server" {
     const str = "November Oscar Papa Quebec Romeo Sierra Tango Uniform Victor Whiskey Xray Yankee Zulu";
     var s = std.io.StreamSource{ .const_buffer = std.io.fixedBufferStream(str) };
     const adr = try std.net.Address.resolveIp(TEST_ADDR, TEST_PORT);
-    var tc = t.TftpClient.init(adr, 200, false);
+    const tc = t.TftpClient.init(adr, 200, false);
     try tc.tftpWrite(remotename, &s);
     const n = try s.const_buffer.getPos();
     std.debug.print("\nn={d}, [{s}]\n", .{ n, buf[0..n] });
@@ -292,7 +292,7 @@ test "write multiple packets to test server" {
     prng.fill(&buf2);
     var s = std.io.StreamSource{ .buffer = std.io.fixedBufferStream(&buf2) };
     const adr = try std.net.Address.resolveIp(TEST_ADDR, TEST_PORT);
-    var tc = t.TftpClient.init(adr, 200, false);
+    const tc = t.TftpClient.init(adr, 200, false);
     try tc.tftpWrite(remotename, &s);
     const n = try s.buffer.getPos();
     try expect(mem.eql(u8, &buf2, buf[0..n]));

@@ -87,13 +87,13 @@ pub const TftpClient = struct {
         return TftpClient{ .address = adr, .timeout = timeout, .verbose = verbose };
     }
 
-    fn dprint(self: *Self, comptime fmt: []const u8, a: anytype) void {
+    fn dprint(self: *const Self, comptime fmt: []const u8, a: anytype) void {
         if (self.verbose) {
             std.debug.print(fmt, a);
         }
     }
 
-    pub fn tftpRead(self: *Self, remotename: []const u8, s: *std.io.StreamSource) !void {
+    pub fn tftpRead(self: *const Self, remotename: []const u8, s: *std.io.StreamSource) !void {
         const w = s.writer();
         const data_max = DATA_MAXSIZE;
         const adr = &self.address;
@@ -167,7 +167,7 @@ pub const TftpClient = struct {
         }
     }
 
-    pub fn tftpWrite(self: *Self, remotename: []const u8, s: *std.io.StreamSource) !void {
+    pub fn tftpWrite(self: *const Self, remotename: []const u8, s: *std.io.StreamSource) !void {
         const r = s.reader();
         const data_max = DATA_MAXSIZE;
         const adr = &self.address;
