@@ -77,23 +77,26 @@ fn toHex(input: []const u8, output: []u8) ![]u8 {
 }
 
 pub const TftpClient = struct {
-    verbose_flag: bool = false,
+    address: net.Address = undefined,
+    timeout: i32 = 1000,
+    verbose: bool = false,
 
     const Self = @This();
 
-    pub fn init(verbose: bool) TftpClient {
-        return TftpClient{ .verbose_flag = verbose };
+    pub fn init(adr: net.Address, timeout: i32, verbose: bool) TftpClient {
+        return TftpClient{ .address = adr, .timeout = timeout, .verbose = verbose };
     }
 
     fn dprint(self: *Self, comptime fmt: []const u8, a: anytype) void {
-        if (self.verbose_flag) {
+        if (self.verbose) {
             std.debug.print(fmt, a);
         }
     }
 
-    pub fn tftpRead(self: *Self, adr: net.Address, remotename: []const u8, s: *std.io.StreamSource, timeout: i32) !void {
+    pub fn tftpRead(self: *Self, remotename: []const u8, s: *std.io.StreamSource) !void {
         const w = s.writer();
         const data_max = DATA_MAXSIZE;
+        const adr = &self.address;
         const sockfd = try os.socket(os.AF.INET, os.SOCK.DGRAM | os.SOCK.CLOEXEC, 0);
         defer os.closeSocket(sockfd);
         const req = payload_buf[0..try makeReq(&payload_buf, opcode.RRQ, remotename)];
@@ -110,7 +113,7 @@ pub const TftpClient = struct {
         while (retry_count < RETRY_MAX) : (retry_count += 1) {
             const send_bytes = try os.sendto(sockfd, req, 0, &adr.any, adr.getOsSockLen());
             self.dprint("{d}:send_bytes={d}, \"{s}\", a={}\n", .{ time.milliTimestamp(), send_bytes, try toVisualStr(payload_buf[0..send_bytes], &dbuf), adr });
-            const nevent = os.poll(&pfd, timeout) catch 0;
+            const nevent = os.poll(&pfd, self.timeout) catch 0;
             if (nevent == 0) {
                 // timeout
                 continue;
@@ -140,7 +143,7 @@ pub const TftpClient = struct {
             if (recv_bytes < (4 + data_max)) {
                 return;
             }
-            const nevent = os.poll(&pfd, timeout) catch 0;
+            const nevent = os.poll(&pfd, self.timeout) catch 0;
             if (nevent == 0) {
                 // timeout
                 retry_count += 1;
@@ -164,9 +167,10 @@ pub const TftpClient = struct {
         }
     }
 
-    pub fn tftpWrite(self: *Self, adr: net.Address, remotename: []const u8, s: *std.io.StreamSource, timeout: i32) !void {
+    pub fn tftpWrite(self: *Self, remotename: []const u8, s: *std.io.StreamSource) !void {
         const r = s.reader();
         const data_max = DATA_MAXSIZE;
+        const adr = &self.address;
         const sockfd = try os.socket(os.AF.INET, os.SOCK.DGRAM | os.SOCK.CLOEXEC, 0);
         defer os.closeSocket(sockfd);
         const req = payload_buf[0..try makeReq(&payload_buf, opcode.WRQ, remotename)];
@@ -183,7 +187,7 @@ pub const TftpClient = struct {
         while (retry_count < RETRY_MAX) : (retry_count += 1) {
             const send_bytes = try os.sendto(sockfd, req, 0, &adr.any, adr.getOsSockLen());
             self.dprint("{d}:send_bytes={d}, \"{s}\", a={}\n", .{ time.milliTimestamp(), send_bytes, try toVisualStr(payload_buf[0..send_bytes], &dbuf), adr });
-            const nevent = os.poll(&pfd, timeout) catch 0;
+            const nevent = os.poll(&pfd, self.timeout) catch 0;
             if (nevent == 0) {
                 // timeout
                 continue;
@@ -209,7 +213,7 @@ pub const TftpClient = struct {
             const n = try r.readAll(payload_buf[4 .. data_max + 4]);
             const send_bytes = try os.send(sockfd, payload_buf[0..(4 + n)], 0);
             self.dprint("{d}:send_bytes={d}, [{s}...]\n", .{ time.milliTimestamp(), send_bytes, try toHex(payload_buf[0..4], &dbuf) });
-            const nevent = try os.poll(&pfd, timeout);
+            const nevent = try os.poll(&pfd, self.timeout);
             if (nevent == 0) {
                 // timeout
                 retry_count += 1;
