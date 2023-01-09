@@ -16,6 +16,8 @@ pub const opcode = struct {
     pub const ERROR = 5;
 };
 
+pub const TftpError = error{ NotDefined, FileNotFound, AccessViolation, DiskFullOrAllocationExceed, IllegalTftpOperation, UnknownTransferId, FileAlreadyExits, NoSuchUser } || std.os.SocketError || std.fs.File.WriteError || std.os.ReadError || std.os.SendToError || std.os.RecvFromError || std.os.ConnectError;
+
 var dbuf: [1024]u8 = undefined;
 var payload_buf: [UDP_PAYLOADSIZE]u8 = undefined;
 
@@ -79,6 +81,7 @@ fn toHex(input: []const u8, output: []u8) ![]u8 {
 pub const TftpClient = struct {
     address: net.Address = undefined,
     timeout: i32 = 1000,
+    //errMsg: []u8,
     verbose: bool = false,
 
     const Self = @This();
@@ -87,13 +90,17 @@ pub const TftpClient = struct {
         return TftpClient{ .address = adr, .timeout = timeout, .verbose = verbose };
     }
 
+    // pub fn getErrorMsg(self: *Self) []u8 {
+    //     return self.errMsg;
+    // }
+
     fn dprint(self: *const Self, comptime fmt: []const u8, a: anytype) void {
         if (self.verbose) {
             std.debug.print(fmt, a);
         }
     }
 
-    pub fn tftpRead(self: *const Self, remotename: []const u8, s: *std.io.StreamSource) !void {
+    pub fn tftpRead(self: *const Self, remotename: []const u8, s: *std.io.StreamSource) TftpError!void {
         const w = s.writer();
         const data_max = DATA_MAXSIZE;
         const adr = &self.address;
@@ -120,7 +127,9 @@ pub const TftpClient = struct {
             }
             if ((pfd[0].revents & (os.linux.POLL.IN | os.linux.POLL.ERR)) == 0) {
                 std.log.err("{d}:Got revents={d}", .{ time.milliTimestamp(), pfd[0].revents });
-                return os.ReadError.ReadError;
+                //return os.ReadError.ReadError;
+                // TODO
+                unreachable;
             }
             recv_bytes = try os.recvfrom(sockfd, &payload_buf, 0, &svraddr, &svraddrlen);
             self.dprint("{d}:recv_bytes={d}, [{s} ...], {}\n", .{ time.milliTimestamp(), recv_bytes, try toHex(payload_buf[0..4], &dbuf), svraddr });
@@ -130,7 +139,9 @@ pub const TftpClient = struct {
                 break;
             }
         } else {
-            return os.ReadError.ReadError;
+            //return os.ReadError.ReadError;
+            // TODO
+            unreachable;
         }
 
         try os.connect(sockfd, &svraddr, svraddrlen);
@@ -151,7 +162,9 @@ pub const TftpClient = struct {
             }
             if ((pfd[0].revents & (os.linux.POLL.IN | os.linux.POLL.ERR)) == 0) {
                 std.log.err("{d}:Got revents={d}", .{ time.milliTimestamp(), pfd[0].revents });
-                return os.ReadError.ReadError;
+                //return os.ReadError.ReadError;
+                // TODO
+                unreachable;
             }
             recv_bytes = try os.recv(sockfd, &payload_buf, 0);
             self.dprint("{d}:recv_bytes={d}, [{s}...]\n", .{ time.milliTimestamp(), recv_bytes, try toHex(payload_buf[0..4], &dbuf) });
@@ -163,11 +176,13 @@ pub const TftpClient = struct {
             }
             retry_count += 1;
         } else {
-            return os.ReadError.ReadError;
+            //return os.ReadError.ReadError;
+            // TODO
+            unreachable;
         }
     }
 
-    pub fn tftpWrite(self: *const Self, remotename: []const u8, s: *std.io.StreamSource) !void {
+    pub fn tftpWrite(self: *const Self, remotename: []const u8, s: *std.io.StreamSource) TftpError!void {
         const r = s.reader();
         const data_max = DATA_MAXSIZE;
         const adr = &self.address;
@@ -194,7 +209,9 @@ pub const TftpClient = struct {
             }
             if ((pfd[0].revents & (os.linux.POLL.IN | os.linux.POLL.ERR)) == 0) {
                 std.log.err("{d}:Got revents={d}", .{ time.milliTimestamp(), pfd[0].revents });
-                return os.ReadError.ReadError;
+                //return os.ReadError.ReadError;
+                // TODO: return some error
+                unreachable;
             }
             recv_bytes = try os.recvfrom(sockfd, &payload_buf, 0, &svraddr, &svraddrlen);
             self.dprint("{d}:recv_bytes={d}, [{s}], {}\n", .{ time.milliTimestamp(), recv_bytes, try toHex(payload_buf[0..recv_bytes], &dbuf), svraddr });
@@ -203,7 +220,9 @@ pub const TftpClient = struct {
                 break;
             }
         } else {
-            return os.ReadError.ReadError;
+            //return os.ReadError.ReadError;
+            // TODO: return a proper error
+            unreachable;
         }
 
         try os.connect(sockfd, &svraddr, svraddrlen);
@@ -221,7 +240,9 @@ pub const TftpClient = struct {
             }
             if ((pfd[0].revents & (os.linux.POLL.IN | os.linux.POLL.ERR)) == 0) {
                 std.log.err("{d}:Got revents={d}", .{ time.milliTimestamp(), pfd[0].revents });
-                return os.ReadError.ReadError;
+                //return os.ReadError.ReadError;
+                // TODO: return some error;
+                unreachable;
             }
             recv_bytes = try os.recv(sockfd, &payload_buf, 0);
             self.dprint("{d}:recv_bytes={d}, [{s}]\n", .{ time.milliTimestamp(), recv_bytes, try toHex(payload_buf[0..recv_bytes], &dbuf) });
@@ -233,7 +254,9 @@ pub const TftpClient = struct {
             }
             retry_count += 1;
         } else {
-            return os.ReadError.ReadError;
+            //return os.ReadError.ReadError;
+            // TODO
+            unreachable;
         }
     }
 };
