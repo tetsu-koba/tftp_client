@@ -16,6 +16,18 @@ pub const opcode = struct {
     pub const ERROR = 5;
 };
 
+pub const errorCode = struct {
+    pub const NotDefined = 0;
+    pub const FileNotFound = 1;
+    pub const AccessViolation = 2;
+    pub const DiskFullOrAllocationExceed = 3;
+    pub const IllegalTftpOperation = 4;
+    pub const UnknownTransferId = 5;
+    pub const FileAlreadyExits = 6;
+    pub const NoSuchUser = 7;
+    pub const Timeout = 8;
+};
+
 pub const TftpError = error{
     NotDefined,
     FileNotFound,
