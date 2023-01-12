@@ -33,7 +33,8 @@ pub fn main() !void {
     };
     defer alist.deinit();
     const adr = alist.addrs[0];
-    const tc = t.TftpClient.init(adr, timeout, verbose);
+    const tc = try t.TftpClient.init(adr, alc, timeout, verbose);
+    defer tc.deinit();
     switch (op) {
         .get => {
             var s = std.io.StreamSource{ .file = try std.fs.cwd().createFile(localname, .{}) };
