@@ -541,3 +541,29 @@ test "write multiple packets to test server" {
     try expect(mem.eql(u8, &buf2, buf[0..n]));
     thread.join();
 }
+
+test "read timeout 1" {
+    const remotename = "read_short.txt";
+    var buf: [1024]u8 = undefined;
+    var s = std.io.StreamSource{ .buffer = std.io.fixedBufferStream(&buf) };
+    const adr = try std.net.Address.resolveIp(TEST_ADDR, TEST_PORT);
+    const tc = try TftpClient.init(adr, std.testing.allocator, 100, false);
+    defer tc.deinit();
+    tc.tftpRead(remotename, &s) catch |e| {
+        if (e == error.Timeout) return;
+    };
+    unreachable;
+}
+
+test "write timeout 1" {
+    const remotename = "write_short.txt";
+    const str = "November Oscar Papa Quebec Romeo Sierra Tango Uniform Victor Whiskey Xray Yankee Zulu";
+    var s = std.io.StreamSource{ .const_buffer = std.io.fixedBufferStream(str) };
+    const adr = try std.net.Address.resolveIp(TEST_ADDR, TEST_PORT);
+    const tc = try TftpClient.init(adr, std.testing.allocator, 100, false);
+    defer tc.deinit();
+    tc.tftpWrite(remotename, &s) catch |e| {
+        if (e == error.Timeout) return;
+    };
+    unreachable;
+}
