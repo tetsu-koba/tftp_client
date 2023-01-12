@@ -113,23 +113,23 @@ pub const TftpClient = struct {
     pub fn init(adr: net.Address, alc: mem.Allocator, timeout: i32, verbose: bool) std.mem.Allocator.Error!TftpClient {
         return TftpClient{ .address = adr, .alc = alc, .timeout = timeout, .dbuf = try alc.alloc(u8, 1024), .payload_buf = try alc.alloc(u8, HEADER_SIZE + DATA_MAXSIZE), .err_msg_buf = try alc.alloc(u8, 1024), .verbose = verbose };
     }
-    pub fn deinit(self: *const Self) void {
+    pub fn deinit(self: *Self) void {
         self.alc.free(self.err_msg_buf);
         self.alc.free(self.dbuf);
         self.alc.free(self.payload_buf);
     }
 
-    pub fn getErrorMsg(self: *Self) []u8 {
+    pub fn getErrMsg(self: *Self) []u8 {
         return self.err_msg_buf[0..self.err_msg_len];
     }
 
-    fn dprint(self: *const Self, comptime fmt: []const u8, a: anytype) void {
+    fn dprint(self: *Self, comptime fmt: []const u8, a: anytype) void {
         if (self.verbose) {
             std.debug.print(fmt, a);
         }
     }
 
-    pub fn tftpRead(self: *const Self, remotename: []const u8, s: *std.io.StreamSource) TftpError!void {
+    pub fn tftpRead(self: *Self, remotename: []const u8, s: *std.io.StreamSource) TftpError!void {
         const w = s.writer();
         const data_max = DATA_MAXSIZE;
         const adr = &self.address;
@@ -195,7 +195,7 @@ pub const TftpClient = struct {
         }
     }
 
-    pub fn tftpWrite(self: *const Self, remotename: []const u8, s: *std.io.StreamSource) TftpError!void {
+    pub fn tftpWrite(self: *Self, remotename: []const u8, s: *std.io.StreamSource) TftpError!void {
         const r = s.reader();
         const data_max = DATA_MAXSIZE;
         const adr = &self.address;

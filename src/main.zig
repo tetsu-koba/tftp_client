@@ -33,18 +33,32 @@ pub fn main() !void {
     };
     defer alist.deinit();
     const adr = alist.addrs[0];
-    const tc = try t.TftpClient.init(adr, alc, timeout, verbose);
+    var tc = try t.TftpClient.init(adr, alc, timeout, verbose);
     defer tc.deinit();
     switch (op) {
         .get => {
             var s = std.io.StreamSource{ .file = try std.fs.cwd().createFile(localname, .{}) };
             defer s.file.close();
-            try tc.tftpRead(remotename, &s);
+            tc.tftpRead(remotename, &s) catch |e| {
+                try handleErr(&tc, e);
+            };
         },
         .put => {
             var s = std.io.StreamSource{ .file = try std.fs.cwd().openFile(localname, .{}) };
             defer s.file.close();
-            try tc.tftpWrite(remotename, &s);
+            tc.tftpWrite(remotename, &s) catch |e| {
+                try handleErr(&tc, e);
+            };
         },
+    }
+}
+
+fn handleErr(tc: *t.TftpClient, e: anyerror) !void {
+    const err_msg = tc.getErrMsg();
+    if (err_msg.len > 0) {
+        std.debug.print("{s}\n", .{err_msg});
+        return;
+    } else {
+        return e;
     }
 }
