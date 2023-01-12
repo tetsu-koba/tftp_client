@@ -155,9 +155,9 @@ pub const TftpClient = struct {
                 continue;
             }
             recv_bytes = try os.recvfrom(sockfd, self.payload_buf, 0, &svraddr, &svraddrlen);
-            self.dprint("{d}:recv_bytes={d}, [{s} ...], {}\n", .{ time.milliTimestamp(), recv_bytes, try toHex(self.payload_buf[0..4], self.dbuf), svraddr });
-            if (checkDataHead(self.payload_buf[0..4], 1)) {
-                _ = try w.writeAll(self.payload_buf[4..recv_bytes]);
+            self.dprint("{d}:recv_bytes={d}, [{s} ...], {}\n", .{ time.milliTimestamp(), recv_bytes, try toHex(self.payload_buf[0..HEADER_SIZE], self.dbuf), svraddr });
+            if (checkDataHead(self.payload_buf[0..HEADER_SIZE], 1)) {
+                _ = try w.writeAll(self.payload_buf[HEADER_SIZE..recv_bytes]);
                 block_n = 1;
                 break;
             }
@@ -172,7 +172,7 @@ pub const TftpClient = struct {
             ack = self.payload_buf[0..makeAck(self.payload_buf, block_n)];
             const send_bytes = try os.send(sockfd, ack, 0);
             self.dprint("{d}:send_bytes={d}, [{s}]\n", .{ time.milliTimestamp(), send_bytes, try toHex(self.payload_buf[0..send_bytes], self.dbuf) });
-            if (recv_bytes < (4 + data_max)) {
+            if (recv_bytes < (HEADER_SIZE + data_max)) {
                 return;
             }
             const nevent = os.poll(&pfd, self.timeout) catch 0;
@@ -182,9 +182,9 @@ pub const TftpClient = struct {
                 continue;
             }
             recv_bytes = try os.recv(sockfd, self.payload_buf, 0);
-            self.dprint("{d}:recv_bytes={d}, [{s}...]\n", .{ time.milliTimestamp(), recv_bytes, try toHex(self.payload_buf[0..4], self.dbuf) });
-            if (checkDataHead(self.payload_buf[0..4], block_n + 1)) {
-                _ = try w.writeAll(self.payload_buf[4..recv_bytes]);
+            self.dprint("{d}:recv_bytes={d}, [{s}...]\n", .{ time.milliTimestamp(), recv_bytes, try toHex(self.payload_buf[0..HEADER_SIZE], self.dbuf) });
+            if (checkDataHead(self.payload_buf[0..HEADER_SIZE], block_n + 1)) {
+                _ = try w.writeAll(self.payload_buf[HEADER_SIZE..recv_bytes]);
                 block_n += 1;
                 retry_count = 0;
                 continue;
@@ -222,7 +222,7 @@ pub const TftpClient = struct {
             }
             recv_bytes = try os.recvfrom(sockfd, self.payload_buf, 0, &svraddr, &svraddrlen);
             self.dprint("{d}:recv_bytes={d}, [{s}], {}\n", .{ time.milliTimestamp(), recv_bytes, try toHex(self.payload_buf[0..recv_bytes], self.dbuf), svraddr });
-            if (checkAck(self.payload_buf[0..4], block_n)) {
+            if (checkAck(self.payload_buf[0..HEADER_SIZE], block_n)) {
                 block_n += 1;
                 break;
             }
@@ -233,10 +233,10 @@ pub const TftpClient = struct {
         try os.connect(sockfd, &svraddr, svraddrlen);
         retry_count = 0;
         while (retry_count < RETRY_MAX) {
-            makeDataHead(self.payload_buf[0..4], block_n);
-            const n = try r.readAll(self.payload_buf[4 .. data_max + 4]);
-            const send_bytes = try os.send(sockfd, self.payload_buf[0..(4 + n)], 0);
-            self.dprint("{d}:send_bytes={d}, [{s}...]\n", .{ time.milliTimestamp(), send_bytes, try toHex(self.payload_buf[0..4], self.dbuf) });
+            makeDataHead(self.payload_buf[0..HEADER_SIZE], block_n);
+            const n = try r.readAll(self.payload_buf[HEADER_SIZE .. HEADER_SIZE + data_max]);
+            const send_bytes = try os.send(sockfd, self.payload_buf[0..(HEADER_SIZE + n)], 0);
+            self.dprint("{d}:send_bytes={d}, [{s}...]\n", .{ time.milliTimestamp(), send_bytes, try toHex(self.payload_buf[0..HEADER_SIZE], self.dbuf) });
             const nevent = try os.poll(&pfd, self.timeout);
             if (nevent == 0) {
                 // timeout
@@ -245,7 +245,7 @@ pub const TftpClient = struct {
             }
             recv_bytes = try os.recv(sockfd, self.payload_buf, 0);
             self.dprint("{d}:recv_bytes={d}, [{s}]\n", .{ time.milliTimestamp(), recv_bytes, try toHex(self.payload_buf[0..recv_bytes], self.dbuf) });
-            if (checkAck(self.payload_buf[0..4], block_n)) {
+            if (checkAck(self.payload_buf[0..HEADER_SIZE], block_n)) {
                 if (n < data_max) break;
                 block_n += 1;
                 retry_count = 0;
@@ -311,7 +311,7 @@ test "read single packet from test server" {
         const Self = @This();
         fn serve(self: *const Self) !void {
             const data_max = DATA_MAXSIZE;
-            var databuf: [4 + data_max]u8 = undefined;
+            var databuf: [HEADER_SIZE + data_max]u8 = undefined;
             const r = self.stream.reader();
             const sockfd = try os.socket(os.AF.INET, os.SOCK.DGRAM | os.SOCK.CLOEXEC, 0);
             defer os.closeSocket(sockfd);
@@ -328,12 +328,12 @@ test "read single packet from test server" {
             var recv_bytes = try os.recvfrom(sockfd, &databuf, 0, &cliaddr, &cliaddrlen);
             if (!try checkReq(databuf[0..recv_bytes], opcode.RRQ, self.filename)) unreachable;
             const block_n = 1;
-            makeDataHead(databuf[0..4], block_n);
-            const n = try r.readAll(databuf[4 .. 4 + data_max]);
-            _ = try os.sendto(sockfd, databuf[0 .. 4 + n], 0, &cliaddr, cliaddrlen);
+            makeDataHead(databuf[0..HEADER_SIZE], block_n);
+            const n = try r.readAll(databuf[HEADER_SIZE .. HEADER_SIZE + data_max]);
+            _ = try os.sendto(sockfd, databuf[0 .. HEADER_SIZE + n], 0, &cliaddr, cliaddrlen);
             nevent = try waitWithTimeout(&pfd, self.timeout);
-            if (try os.recvfrom(sockfd, &databuf, 0, &cliaddr, &cliaddrlen) < 4) unreachable;
-            if (!checkAck(databuf[0..4], block_n)) unreachable;
+            if (try os.recvfrom(sockfd, &databuf, 0, &cliaddr, &cliaddrlen) < HEADER_SIZE) unreachable;
+            if (!checkAck(databuf[0..HEADER_SIZE], block_n)) unreachable;
         }
     };
     const remotename = "read_short.txt";
@@ -364,7 +364,7 @@ test "read multiple packets from test server" {
         const Self = @This();
         fn serve(self: *const Self) !void {
             const data_max = DATA_MAXSIZE;
-            var databuf: [4 + data_max]u8 = undefined;
+            var databuf: [HEADER_SIZE + data_max]u8 = undefined;
             const r = self.stream.reader();
             const sockfd = try os.socket(os.AF.INET, os.SOCK.DGRAM | os.SOCK.CLOEXEC, 0);
             defer os.closeSocket(sockfd);
@@ -391,12 +391,12 @@ test "read multiple packets from test server" {
                     return;
                 }
                 block_n += 1;
-                n = try r.readAll(databuf[4 .. 4 + data_max]);
-                makeDataHead(databuf[0..4], block_n);
-                _ = try os.send(sockfd, databuf[0 .. 4 + n], 0);
+                n = try r.readAll(databuf[HEADER_SIZE .. HEADER_SIZE + data_max]);
+                makeDataHead(databuf[0..HEADER_SIZE], block_n);
+                _ = try os.send(sockfd, databuf[0 .. HEADER_SIZE + n], 0);
                 nevent = try waitWithTimeout(&pfd, self.timeout);
-                if (try os.recv(sockfd, &databuf, 0) < 4) unreachable;
-                if (!checkAck(databuf[0..4], block_n)) unreachable;
+                if (try os.recv(sockfd, &databuf, 0) < HEADER_SIZE) unreachable;
+                if (!checkAck(databuf[0..HEADER_SIZE], block_n)) unreachable;
             }
         }
     };
@@ -431,7 +431,7 @@ test "write single packet to test server" {
         const Self = @This();
         fn serve(self: *const Self) !void {
             const data_max = DATA_MAXSIZE;
-            var databuf: [4 + data_max]u8 = undefined;
+            var databuf: [HEADER_SIZE + data_max]u8 = undefined;
             const w = self.stream.writer();
             const sockfd = try os.socket(os.AF.INET, os.SOCK.DGRAM | os.SOCK.CLOEXEC, 0);
             defer os.closeSocket(sockfd);
@@ -448,16 +448,16 @@ test "write single packet to test server" {
             var recv_bytes = try os.recvfrom(sockfd, &databuf, 0, &cliaddr, &cliaddrlen);
             if (!try checkReq(databuf[0..recv_bytes], opcode.WRQ, self.filename)) unreachable;
             var block_n: u16 = 0;
-            _ = makeAck(databuf[0..4], block_n);
-            _ = try os.sendto(sockfd, databuf[0..4], 0, &cliaddr, cliaddrlen);
+            _ = makeAck(databuf[0..HEADER_SIZE], block_n);
+            _ = try os.sendto(sockfd, databuf[0..HEADER_SIZE], 0, &cliaddr, cliaddrlen);
             block_n += 1;
             nevent = try waitWithTimeout(&pfd, self.timeout);
             const n = try os.recvfrom(sockfd, &databuf, 0, &cliaddr, &cliaddrlen);
-            if (n < 4) unreachable;
-            if (!checkDataHead(databuf[0..4], block_n)) unreachable;
-            _ = try w.writeAll(databuf[4..n]);
-            _ = makeAck(databuf[0..4], block_n);
-            _ = try os.sendto(sockfd, databuf[0..4], 0, &cliaddr, cliaddrlen);
+            if (n < HEADER_SIZE) unreachable;
+            if (!checkDataHead(databuf[0..HEADER_SIZE], block_n)) unreachable;
+            _ = try w.writeAll(databuf[HEADER_SIZE..n]);
+            _ = makeAck(databuf[0..HEADER_SIZE], block_n);
+            _ = try os.sendto(sockfd, databuf[0..HEADER_SIZE], 0, &cliaddr, cliaddrlen);
         }
     };
     const remotename = "write_short.txt";
@@ -488,7 +488,7 @@ test "write multiple packets to test server" {
         const Self = @This();
         fn serve(self: *const Self) !void {
             const data_max = DATA_MAXSIZE;
-            var databuf: [4 + data_max]u8 = undefined;
+            var databuf: [HEADER_SIZE + data_max]u8 = undefined;
             const w = self.stream.writer();
             const sockfd = try os.socket(os.AF.INET, os.SOCK.DGRAM | os.SOCK.CLOEXEC, 0);
             defer os.closeSocket(sockfd);
@@ -506,18 +506,18 @@ test "write multiple packets to test server" {
             if (!try checkReq(databuf[0..recv_bytes], opcode.WRQ, self.filename)) unreachable;
             try os.connect(sockfd, &cliaddr, cliaddrlen);
             var block_n: u16 = 0;
-            _ = makeAck(databuf[0..4], block_n);
-            _ = try os.send(sockfd, databuf[0..4], 0);
-            var n: usize = 4 + data_max;
-            while (n == 4 + data_max and block_n <= 0xffff) {
+            _ = makeAck(databuf[0..HEADER_SIZE], block_n);
+            _ = try os.send(sockfd, databuf[0..HEADER_SIZE], 0);
+            var n: usize = HEADER_SIZE + data_max;
+            while (n == HEADER_SIZE + data_max and block_n <= 0xffff) {
                 block_n += 1;
                 nevent = try waitWithTimeout(&pfd, self.timeout);
                 n = try os.recv(sockfd, &databuf, 0);
-                if (n < 4) unreachable;
-                if (!checkDataHead(databuf[0..4], block_n)) unreachable;
-                _ = try w.writeAll(databuf[4..n]);
-                _ = makeAck(databuf[0..4], block_n);
-                _ = try os.send(sockfd, databuf[0..4], 0);
+                if (n < HEADER_SIZE) unreachable;
+                if (!checkDataHead(databuf[0..HEADER_SIZE], block_n)) unreachable;
+                _ = try w.writeAll(databuf[HEADER_SIZE..n]);
+                _ = makeAck(databuf[0..HEADER_SIZE], block_n);
+                _ = try os.send(sockfd, databuf[0..HEADER_SIZE], 0);
             }
         }
     };
