@@ -26,7 +26,6 @@ pub const errCode = struct {
     pub const UnknownTransferId = 5;
     pub const FileAlreadyExits = 6;
     pub const NoSuchUser = 7;
-    pub const Timeout = 8;
 };
 
 pub const TftpError = error{
@@ -587,6 +586,64 @@ test "write timeout 1" {
     defer tc.deinit();
     tc.tftpWrite(remotename, &s) catch |e| {
         if (e == error.Timeout) return;
+    };
+    unreachable;
+}
+
+fn makeErrorPkt(buf: []u8, errcode: u16, msg: []const u8) !usize {
+    var fbs = std.io.fixedBufferStream(buf);
+    const w = fbs.writer();
+
+    try w.writeIntBig(u16, opcode.ERROR);
+    try w.writeIntBig(u16, errcode);
+    try w.writeAll(msg);
+    try w.writeByte(0);
+    return fbs.getPos();
+}
+
+test "read file not found" {
+    const Server = struct {
+        adr: []const u8,
+        port: u16,
+        filename: []const u8,
+        timeout: i32,
+        const Self = @This();
+        fn serve(self: *const Self) !void {
+            const data_max = DATA_MAXSIZE;
+            var databuf: [HEADER_SIZE + data_max]u8 = undefined;
+            const sockfd = try os.socket(os.AF.INET, os.SOCK.DGRAM | os.SOCK.CLOEXEC, 0);
+            defer os.closeSocket(sockfd);
+            const a = try net.Address.resolveIp(self.adr, self.port);
+            try os.bind(sockfd, &a.any, a.getOsSockLen());
+            var pfd = [1]os.pollfd{.{
+                .fd = sockfd,
+                .events = os.POLL.IN,
+                .revents = undefined,
+            }};
+            const nevent = try waitWithTimeout(&pfd, self.timeout);
+            if (nevent == 0) unreachable;
+            var cliaddr: std.os.linux.sockaddr = undefined;
+            var cliaddrlen: std.os.socklen_t = @sizeOf(os.linux.sockaddr);
+            var recv_bytes = try os.recvfrom(sockfd, &databuf, 0, &cliaddr, &cliaddrlen);
+            if (!try checkReq(databuf[0..recv_bytes], opcode.RRQ, self.filename)) unreachable;
+            const n = try makeErrorPkt(&databuf, errCode.FileNotFound, "File not found");
+            _ = try os.sendto(sockfd, databuf[0..n], 0, &cliaddr, cliaddrlen);
+        }
+    };
+    const remotename = "read_short.txt";
+    const svr = Server{ .adr = TEST_ADDR, .port = TEST_PORT, .filename = remotename, .timeout = 5 * 1000 };
+    var thread = try std.Thread.spawn(.{}, Server.serve, .{&svr});
+
+    var buf: [1024]u8 = undefined;
+    var s = std.io.StreamSource{ .buffer = std.io.fixedBufferStream(&buf) };
+    const adr = try std.net.Address.resolveIp(TEST_ADDR, TEST_PORT);
+    var tc = try TftpClient.init(adr, std.testing.allocator, 200, false);
+    defer tc.deinit();
+    tc.tftpRead(remotename, &s) catch |e| {
+        try expect(e == error.FileNotFound);
+        try expect(mem.eql(u8, "File not found", tc.getErrMsg()));
+        thread.join();
+        return;
     };
     unreachable;
 }
