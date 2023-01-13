@@ -137,6 +137,7 @@ pub const TftpClient = struct {
         switch (errc) {
             errCode.NotDefined => return error.NotDefined,
             errCode.FileNotFound => return error.FileNotFound,
+            errCode.AccessViolation => return error.AccessViolation,
             errCode.DiskFullOrAllocationExceed => return error.DiskFullOrAllocationExceed,
             errCode.IllegalTftpOperation => return error.IllegalTftpOperation,
             errCode.UnknownTransferId => return error.UnknownTransferId,
@@ -642,6 +643,53 @@ test "read file not found" {
     tc.tftpRead(remotename, &s) catch |e| {
         try expect(e == error.FileNotFound);
         try expect(mem.eql(u8, "File not found", tc.getErrMsg()));
+        thread.join();
+        return;
+    };
+    unreachable;
+}
+
+test "write access violation" {
+    const Server = struct {
+        adr: []const u8,
+        port: u16,
+        filename: []const u8,
+        timeout: i32,
+        const Self = @This();
+        fn serve(self: *const Self) !void {
+            const data_max = DATA_MAXSIZE;
+            var databuf: [HEADER_SIZE + data_max]u8 = undefined;
+            const sockfd = try os.socket(os.AF.INET, os.SOCK.DGRAM | os.SOCK.CLOEXEC, 0);
+            defer os.closeSocket(sockfd);
+            const a = try net.Address.resolveIp(self.adr, self.port);
+            try os.bind(sockfd, &a.any, a.getOsSockLen());
+            var pfd = [1]os.pollfd{.{
+                .fd = sockfd,
+                .events = os.POLL.IN,
+                .revents = undefined,
+            }};
+            const nevent = try waitWithTimeout(&pfd, self.timeout);
+            if (nevent == 0) unreachable;
+            var cliaddr: std.os.linux.sockaddr = undefined;
+            var cliaddrlen: std.os.socklen_t = @sizeOf(os.linux.sockaddr);
+            var recv_bytes = try os.recvfrom(sockfd, &databuf, 0, &cliaddr, &cliaddrlen);
+            if (!try checkReq(databuf[0..recv_bytes], opcode.WRQ, self.filename)) unreachable;
+            const n = try makeError(&databuf, errCode.AccessViolation, "Access violation");
+            _ = try os.sendto(sockfd, databuf[0..n], 0, &cliaddr, cliaddrlen);
+        }
+    };
+    const remotename = "write_short.txt";
+    const svr = Server{ .adr = TEST_ADDR, .port = TEST_PORT, .filename = remotename, .timeout = 5 * 1000 };
+    var thread = try std.Thread.spawn(.{}, Server.serve, .{&svr});
+
+    const str = "November Oscar Papa Quebec Romeo Sierra Tango Uniform Victor Whiskey Xray Yankee Zulu";
+    var s = std.io.StreamSource{ .const_buffer = std.io.fixedBufferStream(str) };
+    const adr = try std.net.Address.resolveIp(TEST_ADDR, TEST_PORT);
+    var tc = try TftpClient.init(adr, std.testing.allocator, 200, false);
+    defer tc.deinit();
+    tc.tftpWrite(remotename, &s) catch |e| {
+        try expect(e == error.AccessViolation);
+        try expect(mem.eql(u8, "Access violation", tc.getErrMsg()));
         thread.join();
         return;
     };
