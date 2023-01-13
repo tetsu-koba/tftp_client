@@ -41,6 +41,7 @@ pub fn main() !void {
             defer s.file.close();
             tc.tftpRead(remotename, &s) catch |e| {
                 try handleErr(&tc, e);
+                std.os.exit(1);
             };
         },
         .put => {
@@ -48,6 +49,7 @@ pub fn main() !void {
             defer s.file.close();
             tc.tftpWrite(remotename, &s) catch |e| {
                 try handleErr(&tc, e);
+                std.os.exit(1);
             };
         },
     }

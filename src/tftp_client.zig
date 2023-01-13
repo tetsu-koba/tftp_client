@@ -17,7 +17,7 @@ pub const opcode = struct {
     pub const ERROR = 5;
 };
 
-pub const errorCode = struct {
+pub const errCode = struct {
     pub const NotDefined = 0;
     pub const FileNotFound = 1;
     pub const AccessViolation = 2;
@@ -129,6 +129,25 @@ pub const TftpClient = struct {
         }
     }
 
+    fn checkError(self: *Self, b: []u8) !void {
+        if (mem.readIntBig(u16, b[0..2]) != opcode.ERROR) return;
+        if (b[b.len - 1] != 0) return;
+        const errc = mem.readIntBig(u16, b[2..4]);
+        mem.copy(u8, self.err_msg_buf, b[4 .. b.len - 1]);
+        self.err_msg_len = @truncate(u16, b.len - 1 - 4);
+        switch (errc) {
+            errCode.NotDefined => return error.NotDefined,
+            errCode.FileNotFound => return error.FileNotFound,
+            errCode.DiskFullOrAllocationExceed => return error.DiskFullOrAllocationExceed,
+            errCode.IllegalTftpOperation => return error.IllegalTftpOperation,
+            errCode.UnknownTransferId => return error.UnknownTransferId,
+            errCode.FileAlreadyExits => return error.FileAlreadyExits,
+            errCode.NoSuchUser => return error.NoSuchUser,
+            else => return,
+        }
+        unreachable;
+    }
+
     pub fn tftpRead(self: *Self, remotename: []const u8, s: *std.io.StreamSource) TftpError!void {
         const w = s.writer();
         const data_max = DATA_MAXSIZE;
@@ -161,6 +180,7 @@ pub const TftpClient = struct {
                 block_n = 1;
                 break;
             }
+            try self.checkError(self.payload_buf[0..recv_bytes]);
         } else {
             return error.Timeout;
         }
@@ -189,6 +209,7 @@ pub const TftpClient = struct {
                 retry_count = 0;
                 continue;
             }
+            try self.checkError(self.payload_buf[0..recv_bytes]);
             retry_count += 1;
         } else {
             return error.Timeout;
@@ -226,6 +247,7 @@ pub const TftpClient = struct {
                 block_n += 1;
                 break;
             }
+            try self.checkError(self.payload_buf[0..recv_bytes]);
         } else {
             return error.Timeout;
         }
@@ -251,6 +273,7 @@ pub const TftpClient = struct {
                 retry_count = 0;
                 continue;
             }
+            try self.checkError(self.payload_buf[0..recv_bytes]);
             retry_count += 1;
         } else {
             return error.Timeout;
