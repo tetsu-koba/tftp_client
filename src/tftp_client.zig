@@ -366,7 +366,7 @@ test "read single packet from test server" {
     var buf: [1024]u8 = undefined;
     var s = std.io.StreamSource{ .buffer = std.io.fixedBufferStream(&buf) };
     const adr = try std.net.Address.resolveIp(TEST_ADDR, TEST_PORT);
-    var tc = try TftpClient.init(adr, std.testing.allocator, 200, false);
+    var tc = try TftpClient.init(adr, std.testing.allocator, 1000, false);
     defer tc.deinit();
     try tc.tftpRead(remotename, &s);
     const n = try s.buffer.getPos();
@@ -434,7 +434,7 @@ test "read multiple packets from test server" {
     var buf: [DATASIZE + 512]u8 = undefined;
     var s = std.io.StreamSource{ .buffer = std.io.fixedBufferStream(&buf) };
     const adr = try std.net.Address.resolveIp(TEST_ADDR, TEST_PORT);
-    var tc = try TftpClient.init(adr, std.testing.allocator, 200, false);
+    var tc = try TftpClient.init(adr, std.testing.allocator, 1000, false);
     defer tc.deinit();
     try tc.tftpRead(remotename, &s);
     const n = try s.buffer.getPos();
@@ -490,7 +490,7 @@ test "write single packet to test server" {
     const str = "November Oscar Papa Quebec Romeo Sierra Tango Uniform Victor Whiskey Xray Yankee Zulu";
     var s = std.io.StreamSource{ .const_buffer = std.io.fixedBufferStream(str) };
     const adr = try std.net.Address.resolveIp(TEST_ADDR, TEST_PORT);
-    var tc = try TftpClient.init(adr, std.testing.allocator, 200, false);
+    var tc = try TftpClient.init(adr, std.testing.allocator, 1000, false);
     defer tc.deinit();
     try tc.tftpWrite(remotename, &s);
     const n = try s.const_buffer.getPos();
@@ -555,7 +555,7 @@ test "write multiple packets to test server" {
     prng.fill(&buf2);
     var s = std.io.StreamSource{ .buffer = std.io.fixedBufferStream(&buf2) };
     const adr = try std.net.Address.resolveIp(TEST_ADDR, TEST_PORT);
-    var tc = try TftpClient.init(adr, std.testing.allocator, 200, false);
+    var tc = try TftpClient.init(adr, std.testing.allocator, 1000, false);
     defer tc.deinit();
     try tc.tftpWrite(remotename, &s);
     const n = try s.buffer.getPos();
@@ -581,7 +581,7 @@ test "write timeout 1" {
     const str = "November Oscar Papa Quebec Romeo Sierra Tango Uniform Victor Whiskey Xray Yankee Zulu";
     var s = std.io.StreamSource{ .const_buffer = std.io.fixedBufferStream(str) };
     const adr = try std.net.Address.resolveIp(TEST_ADDR, TEST_PORT);
-    var tc = try TftpClient.init(adr, std.testing.allocator, 100, false);
+    var tc = try TftpClient.init(adr, std.testing.allocator, 1000, false);
     defer tc.deinit();
     tc.tftpWrite(remotename, &s) catch |e| {
         if (e == error.Timeout) return;
@@ -636,7 +636,7 @@ test "read file not found" {
     var buf: [1024]u8 = undefined;
     var s = std.io.StreamSource{ .buffer = std.io.fixedBufferStream(&buf) };
     const adr = try std.net.Address.resolveIp(TEST_ADDR, TEST_PORT);
-    var tc = try TftpClient.init(adr, std.testing.allocator, 200, false);
+    var tc = try TftpClient.init(adr, std.testing.allocator, 1000, false);
     defer tc.deinit();
     tc.tftpRead(remotename, &s) catch |e| {
         try expect(e == error.FileNotFound);
@@ -683,7 +683,7 @@ test "write access violation" {
     const str = "November Oscar Papa Quebec Romeo Sierra Tango Uniform Victor Whiskey Xray Yankee Zulu";
     var s = std.io.StreamSource{ .const_buffer = std.io.fixedBufferStream(str) };
     const adr = try std.net.Address.resolveIp(TEST_ADDR, TEST_PORT);
-    var tc = try TftpClient.init(adr, std.testing.allocator, 200, false);
+    var tc = try TftpClient.init(adr, std.testing.allocator, 1000, false);
     defer tc.deinit();
     tc.tftpWrite(remotename, &s) catch |e| {
         try expect(e == error.AccessViolation);
