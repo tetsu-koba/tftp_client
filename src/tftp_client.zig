@@ -167,7 +167,7 @@ pub const TftpClient = struct {
         while (t0 - t1 > 0) : (t1 = time.milliTimestamp()) {
             const send_bytes = try os.sendto(sockfd, req, 0, &adr.any, adr.getOsSockLen());
             self.dprint("{d}:send_bytes={d}, \"{s}\", a={}\n", .{ time.milliTimestamp(), send_bytes, try toVisualStr(self.payload_buf[0..send_bytes], self.dbuf), adr });
-            const nevent = os.poll(&pfd, @intCast(i32, t0 - t1)) catch 0;
+            const nevent = try os.poll(&pfd, @intCast(i32, t0 - t1));
             if (nevent == 0) {
                 // timeout
                 continue;
@@ -195,7 +195,7 @@ pub const TftpClient = struct {
             if (recv_bytes < (HEADER_SIZE + data_max)) {
                 return;
             }
-            const nevent = os.poll(&pfd, @intCast(i32, t0 - t1)) catch 0;
+            const nevent = try os.poll(&pfd, @intCast(i32, t0 - t1));
             if (nevent == 0) {
                 // timeout
                 continue;
@@ -235,7 +235,7 @@ pub const TftpClient = struct {
         while (t0 - t1 > 0) : (t1 = time.milliTimestamp()) {
             const send_bytes = try os.sendto(sockfd, req, 0, &adr.any, adr.getOsSockLen());
             self.dprint("{d}:send_bytes={d}, \"{s}\", a={}\n", .{ time.milliTimestamp(), send_bytes, try toVisualStr(self.payload_buf[0..send_bytes], self.dbuf), adr });
-            const nevent = os.poll(&pfd, @intCast(i32, t0 - t1)) catch 0;
+            const nevent = try os.poll(&pfd, @intCast(i32, t0 - t1));
             if (nevent == 0) {
                 // timeout
                 continue;
@@ -259,7 +259,7 @@ pub const TftpClient = struct {
             const n = try r.readAll(self.payload_buf[HEADER_SIZE .. HEADER_SIZE + data_max]);
             const send_bytes = try os.send(sockfd, self.payload_buf[0..(HEADER_SIZE + n)], 0);
             self.dprint("{d}:send_bytes={d}, [{s}...]\n", .{ time.milliTimestamp(), send_bytes, try toHex(self.payload_buf[0..HEADER_SIZE], self.dbuf) });
-            const nevent = os.poll(&pfd, @intCast(i32, t0 - t1)) catch 0;
+            const nevent = try os.poll(&pfd, @intCast(i32, t0 - t1));
             if (nevent == 0) {
                 // timeout
                 continue;
