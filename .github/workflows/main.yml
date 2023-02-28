@@ -10,7 +10,7 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-latest]
-        release: [Debug, ReleaseSafe, ReleaseFast, ReleaseSmall]
+        optimize: [Debug, ReleaseSafe, ReleaseFast, ReleaseSmall]
     runs-on: ${{matrix.os}}
     steps:
       - uses: actions/checkout@v3
@@ -19,7 +19,7 @@ jobs:
       - uses: goto-bus-stop/setup-zig@v2.0.1
         with:
           version: master
-      - run: zig test -O ${{ matrix.release }} src/tftp_client.zig
+      - run: zig test -Doptimize=${{ matrix.optimize }} src/tftp_client.zig
   lint:
     runs-on: ubuntu-latest
     steps:
