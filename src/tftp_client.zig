@@ -133,7 +133,7 @@ pub const TftpClient = struct {
         if (b[b.len - 1] != 0) return;
         const errc = mem.readIntBig(u16, b[2..4]);
         mem.copy(u8, self.err_msg_buf, b[4 .. b.len - 1]);
-        self.err_msg_len = @truncate(u16, b.len - 1 - 4);
+        self.err_msg_len = @truncate(b.len - 1 - 4);
         switch (errc) {
             errCode.NotDefined => return error.NotDefined,
             errCode.FileNotFound => return error.FileNotFound,
