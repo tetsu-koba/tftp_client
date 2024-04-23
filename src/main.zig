@@ -14,12 +14,12 @@ pub fn main() !void {
 
     if (args.len < 4 or 5 < args.len) {
         std.debug.print("Usage: {s} get|put host remote_filename [local_filename]\n", .{args[0]});
-        std.os.exit(1);
+        std.posix.exit(1);
     }
     const a1 = std.mem.sliceTo(args[1], 0);
     const op: enum { get, put } = if (std.mem.eql(u8, a1, "get")) .get else if (std.mem.eql(u8, a1, "put")) .put else {
         std.debug.print("{s} is not allowed. Specify 'get' or 'put'\n", .{a1});
-        std.os.exit(1);
+        std.posix.exit(1);
     };
     const host = std.mem.sliceTo(args[2], 0);
     const remotename = std.mem.sliceTo(args[3], 0);
@@ -29,7 +29,7 @@ pub fn main() !void {
     }
     var alist = std.net.getAddressList(alc, host, port) catch |e| {
         std.debug.print("std.net.getAddressList: host={s} {}\n", .{ host, e });
-        std.os.exit(1);
+        std.posix.exit(1);
     };
     defer alist.deinit();
     const adr = alist.addrs[0];
@@ -41,7 +41,7 @@ pub fn main() !void {
             defer s.file.close();
             tc.tftpRead(remotename, &s) catch |e| {
                 try handleErr(&tc, e);
-                std.os.exit(1);
+                std.posix.exit(1);
             };
         },
         .put => {
@@ -49,7 +49,7 @@ pub fn main() !void {
             defer s.file.close();
             tc.tftpWrite(remotename, &s) catch |e| {
                 try handleErr(&tc, e);
-                std.os.exit(1);
+                std.posix.exit(1);
             };
         },
     }
